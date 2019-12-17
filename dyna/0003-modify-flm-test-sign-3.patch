@@ -1,0 +1,25 @@
+From 32c4b6aa9456ecad9ea2ef7729e16eb4137ef5ed Mon Sep 17 00:00:00 2001
+From: weiyw <weiyw@example.com>
+Date: Thu, 12 Dec 2019 13:32:33 +0800
+Subject: [PATCH 3/3] modify flm test sign[3]
+
+Change-Id: Iae4448572fec62f314c01e6a86aa72db16688e02
+---
+ PackageInstaller/AndroidManifest.xml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/PackageInstaller/AndroidManifest.xml b/PackageInstaller/AndroidManifest.xml
+index fe0d35e..22f006a 100644
+--- a/PackageInstaller/AndroidManifest.xml
++++ b/PackageInstaller/AndroidManifest.xml
+@@ -10,6 +10,7 @@
+     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+     <uses-permission android:name="android.permission.CLEAR_APP_USER_DATA" />
+     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
++    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE">
+     <uses-permission android:name="android.permission.MANAGE_USERS" />
+     <uses-permission android:name="android.permission.GRANT_REVOKE_PERMISSIONS" />
+     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
+-- 
+1.9.1
+

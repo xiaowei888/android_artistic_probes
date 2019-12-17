@@ -1,0 +1,30 @@
+From bb8d2434f19f3c7ff2fefdc7a0b656b56269dc4c Mon Sep 17 00:00:00 2001
+From: xia <xia@example.com>
+Date: Sat, 4 Mar 2017 15:25:38 +0800
+Subject: [PATCH] =?UTF-8?q?=E4=BC=98=E5=8C=96ExternalStorageProvider.odex?=
+ =?UTF-8?q?=E5=8A=A0=E8=BD=BD=E8=B6=85=E6=97=A5=E6=9C=9F?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Change-Id: I38294aca6233d6eb933bc4b68fc29fbcead74d76
+---
+ packages/ExternalStorageProvider/Android.mk | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/packages/ExternalStorageProvider/Android.mk b/packages/ExternalStorageProvider/Android.mk
+index db825ff..6d3d911 100644
+--- a/packages/ExternalStorageProvider/Android.mk
++++ b/packages/ExternalStorageProvider/Android.mk
+@@ -2,7 +2,7 @@ LOCAL_PATH:= $(call my-dir)
+ include $(CLEAR_VARS)
+ 
+ LOCAL_MODULE_TAGS := optional
+-
++LOCAL_DEX_PREOPT := false
+ LOCAL_SRC_FILES := $(call all-subdir-java-files)
+ 
+ LOCAL_PACKAGE_NAME := ExternalStorageProvider
+-- 
+1.9.1
+

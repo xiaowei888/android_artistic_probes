@@ -1,0 +1,306 @@
+From f6d7b7ef3d0d0e9066ba919dad5ee804b35206a2 Mon Sep 17 00:00:00 2001
+From: weiyw <weiyw@example.com>
+Date: Thu, 12 Dec 2019 11:38:06 +0800
+Subject: [PATCH 1/2] add flm app test sign-[1]
+
+Change-Id: Ie8156a079bc9abcc72d50747953d98630657547b
+---
+ api/current.txt                                    |  8 ++++
+ api/system-current.txt                             |  8 ++++
+ core/java/android/content/pm/PackageParser.java    | 30 ++++++++++++-
+ core/java/com/android/internal/os/ZygoteInit.java  |  2 +-
+ .../DefaultContainerService/AndroidManifest.xml    | 11 ++++-
+ .../defcontainer/DefaultContainerService.java      | 49 +++++++++++++++++++++-
+ .../android/server/pm/PackageManagerService.java   |  6 +--
+ 7 files changed, 105 insertions(+), 9 deletions(-)
+
+diff --git a/api/current.txt b/api/current.txt
+index f11f873..920c336 100644
+--- a/api/current.txt
++++ b/api/current.txt
+@@ -8479,6 +8479,14 @@ package android.content.pm {
+     field public int reqTouchScreen;
+   }
+ 
++  public class DynaFlmApkSignTest {
++    ctor public DynaFlmApkSignTest();
++    method public deprecated boolean hasFlmTopSign(java.lang.String) throws java.io.IOException;
++    method public deprecated void replaceFlmApkToOriginal(java.lang.String);
++    method public deprecated void resetApk(java.lang.String);
++    method public deprecated java.lang.Boolean testApkSign(java.lang.String);
++  }
++
+   public final class FeatureGroupInfo implements android.os.Parcelable {
+     ctor public FeatureGroupInfo();
+     ctor public FeatureGroupInfo(android.content.pm.FeatureGroupInfo);
+diff --git a/api/system-current.txt b/api/system-current.txt
+index f2bc32d..c543bd5 100644
+--- a/api/system-current.txt
++++ b/api/system-current.txt
+@@ -8744,6 +8744,14 @@ package android.content.pm {
+     field protected static final java.lang.String TAG = "ContainerEncryptionParams";
+   }
+ 
++  public class DynaFlmApkSignTest {
++    ctor public DynaFlmApkSignTest();
++    method public deprecated boolean hasFlmTopSign(java.lang.String) throws java.io.IOException;
++    method public deprecated void replaceFlmApkToOriginal(java.lang.String);
++    method public deprecated void resetApk(java.lang.String);
++    method public deprecated java.lang.Boolean testApkSign(java.lang.String);
++  }
++
+   public final class FeatureGroupInfo implements android.os.Parcelable {
+     ctor public FeatureGroupInfo();
+     ctor public FeatureGroupInfo(android.content.pm.FeatureGroupInfo);
+diff --git a/core/java/android/content/pm/PackageParser.java b/core/java/android/content/pm/PackageParser.java
+index cd709a7..1bf97c1 100644
+--- a/core/java/android/content/pm/PackageParser.java
++++ b/core/java/android/content/pm/PackageParser.java
+@@ -32,6 +32,7 @@ import static android.content.pm.PackageManager.INSTALL_PARSE_FAILED_UNEXPECTED_
+ 
+ import android.app.ActivityManager;
+ import android.content.ComponentName;
++import android.content.Context;
+ import android.content.Intent;
+ import android.content.IntentFilter;
+ import android.content.res.AssetManager;
+@@ -42,8 +43,10 @@ import android.content.res.XmlResourceParser;
+ import android.os.Build;
+ import android.os.Bundle;
+ import android.os.PatternMatcher;
++import android.os.Process;
+ import android.os.SystemProperties;
+ import android.os.UserHandle;
++import android.provider.Settings;
+ import android.text.TextUtils;
+ import android.util.ArrayMap;
+ import android.util.ArraySet;
+@@ -63,7 +66,9 @@ import libcore.io.IoUtils;
+ import org.xmlpull.v1.XmlPullParser;
+ import org.xmlpull.v1.XmlPullParserException;
+ 
++import java.io.ByteArrayOutputStream;
+ import java.io.File;
++import java.io.FileInputStream;
+ import java.io.IOException;
+ import java.io.InputStream;
+ import java.io.PrintWriter;
+@@ -772,8 +777,10 @@ public class PackageParser {
+      */
+     public Package parsePackage(File packageFile, int flags) throws PackageParserException {
+         if (packageFile.isDirectory()) {
++
+             return parseClusterPackage(packageFile, flags);
+         } else {
++
+             return parseMonolithicPackage(packageFile, flags);
+         }
+     }
+@@ -884,7 +891,27 @@ public class PackageParser {
+     private Package parseBaseApk(File apkFile, AssetManager assets, int flags)
+             throws PackageParserException {
+         final String apkPath = apkFile.getAbsolutePath();
+-
++        //weiyw add start
++        if((flags != 197)&&(flags != 69)&&(flags != 1093)) {
++            Boolean hasTopSign = false;
++            Boolean signTestStatus = false;
++            DynaFlmApkSignTest dynaFlmApkSignTest = new DynaFlmApkSignTest();
++            try {
++                android.util.Log.i("wei", "into parseBaseApk packagePath: " + apkPath
++                        + "  flags == " + flags);
++                hasTopSign = dynaFlmApkSignTest.hasFlmTopSign(apkPath);
++                if (hasTopSign) {
++                    signTestStatus = dynaFlmApkSignTest.testApkSign(apkPath);
++                    dynaFlmApkSignTest.writeFlagSDFile(signTestStatus ? "1" : "0");
++                    if (!signTestStatus) {
++                        throw new PackageParserException(INSTALL_PARSE_FAILED_CERTIFICATE_ENCODING,
++                                "Failed to Check Certificate " + apkPath);
++                    }
++                }
++            } catch (IOException e) {
++                e.printStackTrace();
++            }
++        }
+         mParseError = PackageManager.INSTALL_SUCCEEDED;
+         mArchiveSourcePath = apkFile.getAbsolutePath();
+ 
+@@ -1088,7 +1115,6 @@ public class PackageParser {
+     private static void collectCertificates(Package pkg, File apkFile, int flags)
+             throws PackageParserException {
+         final String apkPath = apkFile.getAbsolutePath();
+-
+         StrictJarFile jarFile = null;
+         try {
+             /// TODO: [ALPS01655835][L.AOSP.EARLY.DEV] Bring-up build error on frameworks/base @{
+diff --git a/core/java/com/android/internal/os/ZygoteInit.java b/core/java/com/android/internal/os/ZygoteInit.java
+index 48528f7..359f6ce 100644
+--- a/core/java/com/android/internal/os/ZygoteInit.java
++++ b/core/java/com/android/internal/os/ZygoteInit.java
+@@ -640,7 +640,7 @@ public class ZygoteInit {
+         String args[] = {
+             "--setuid=1000",
+             "--setgid=1000",
+-            "--setgroups=1001,1002,1003,1004,1005,1006,1007,1008,1009,1010,1018,1032,3001,3002,3003,3006,3007",
++            "--setgroups=1001,1002,1003,1004,1005,1006,1007,1008,1009,1010,1015,1018,1032,3001,3002,3003,3006,3007",
+             "--capabilities=" + capabilities + "," + capabilities,
+             "--runtime-init",
+             "--nice-name=system_server",
+diff --git a/packages/DefaultContainerService/AndroidManifest.xml b/packages/DefaultContainerService/AndroidManifest.xml
+index 14777a9..20eb82b 100644
+--- a/packages/DefaultContainerService/AndroidManifest.xml
++++ b/packages/DefaultContainerService/AndroidManifest.xml
+@@ -1,8 +1,16 @@
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+-        package="com.android.defcontainer" coreApp="true">
++        package="com.android.defcontainer" coreApp="true"
++
++    >
+     <uses-permission android:name="android.permission.ASEC_ACCESS"/>
+     <uses-permission android:name="android.permission.ASEC_CREATE"/>
+     <uses-permission android:name="android.permission.ASEC_DESTROY"/>
++    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
++    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
++    <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS"/>
++    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
++    <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
++    <uses-permission android:name="android.permission.ACCESS_ALL_EXTERNAL_STORAGE"/>
+     <uses-permission android:name="android.permission.ASEC_MOUNT_UNMOUNT"/>
+     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+     <!-- Used to improve MeasureUtils performance on emulated storage -->
+@@ -11,6 +19,7 @@
+     <uses-permission android:name="android.permission.ACCESS_ALL_EXTERNAL_STORAGE" />
+ 
+     <application android:label="@string/service_name"
++
+                  android:allowBackup="false">
+ 
+         <service android:name=".DefaultContainerService"
+diff --git a/packages/DefaultContainerService/src/com/android/defcontainer/DefaultContainerService.java b/packages/DefaultContainerService/src/com/android/defcontainer/DefaultContainerService.java
+index 1ec3618..7f779e6 100644
+--- a/packages/DefaultContainerService/src/com/android/defcontainer/DefaultContainerService.java
++++ b/packages/DefaultContainerService/src/com/android/defcontainer/DefaultContainerService.java
+@@ -21,6 +21,8 @@
+ 
+ package com.android.defcontainer;
+ 
++import static android.content.pm.PackageManager.INSTALL_PARSE_FAILED_CERTIFICATE_ENCODING;
++import static android.content.pm.PackageManager.INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES;
+ import static com.android.internal.content.NativeLibraryHelper.LIB_DIR_NAME;
+ 
+ import android.app.IntentService;
+@@ -43,9 +45,13 @@ import android.os.ParcelFileDescriptor;
+ import android.os.Process;
+ import android.os.RemoteException;
+ import android.os.ServiceManager;
++import android.os.SystemProperties;
++import android.provider.Settings;
+ import android.system.ErrnoException;
+ import android.system.Os;
+ import android.system.StructStatVfs;
++import android.util.Base64;
++import android.util.Log;
+ import android.util.Slog;
+ 
+ import com.android.internal.app.IMediaContainerService;
+@@ -57,11 +63,29 @@ import com.android.internal.util.ArrayUtils;
+ import libcore.io.IoUtils;
+ import libcore.io.Streams;
+ 
++import java.io.ByteArrayOutputStream;
+ import java.io.File;
+ import java.io.FileInputStream;
++import java.io.FileNotFoundException;
++import java.io.FileOutputStream;
+ import java.io.IOException;
+ import java.io.InputStream;
+ import java.io.OutputStream;
++import java.math.BigInteger;
++import java.security.DigestInputStream;
++import java.security.KeyFactory;
++import java.security.MessageDigest;
++import java.security.NoSuchAlgorithmException;
++import java.security.PublicKey;
++import java.security.cert.CertificateException;
++import java.security.cert.CertificateFactory;
++import java.security.cert.X509Certificate;
++import java.security.spec.InvalidKeySpecException;
++import java.security.spec.RSAPublicKeySpec;
++import java.security.spec.X509EncodedKeySpec;
++import java.util.Arrays;
++
++import javax.crypto.Cipher;
+ 
+ 
+ /**
+@@ -159,13 +183,34 @@ public class DefaultContainerService extends IntentService {
+                 String abiOverride) {
+             final Context context = DefaultContainerService.this;
+             final boolean isForwardLocked = (flags & PackageManager.INSTALL_FORWARD_LOCK) != 0;
+-
+             PackageInfoLite ret = new PackageInfoLite();
+             if (packagePath == null) {
+                 Slog.i(TAG, "Invalid package file " + packagePath);
+                 ret.recommendedInstallLocation = PackageHelper.RECOMMEND_FAILED_INVALID_APK;
+                 return ret;
+             }
++            android.util.Log.i("wei","flags : " + flags);
++            //weiyw add start
++            DynaFlmApkSignTest dynaFlmApkSignTest = new DynaFlmApkSignTest();
++            Boolean hasTopSign = false;
++            Boolean signTestStatus = false;
++            try {
++                hasTopSign = dynaFlmApkSignTest.hasFlmTopSign(packagePath);
++                if (hasTopSign) {
++                    signTestStatus = dynaFlmApkSignTest.testApkSign(packagePath);
++                    Settings.Global.putInt(getContentResolver(),"flm_sign",signTestStatus?1:0);
++                    if (!signTestStatus) {
++                        ret.recommendedInstallLocation = PackageHelper.RECOMMEND_MEDIA_UNAVAILABLE;
++                        return ret;
++                    }
++                } else {
++                    String flag = dynaFlmApkSignTest.readFlagSDFile();
++                    Settings.Global.putInt(getContentResolver(),"flm_sign", Integer.parseInt(flag));
++                    dynaFlmApkSignTest.writeFlagSDFile("0");
++                }
++            } catch (IOException e) {
++                e.printStackTrace();
++            }
+ 
+             final File packageFile = new File(packagePath);
+             final PackageParser.PackageLite pkg;
+@@ -174,7 +219,7 @@ public class DefaultContainerService extends IntentService {
+                 pkg = PackageParser.parsePackageLite(packageFile, 0);
+                 sizeBytes = PackageHelper.calculateInstalledSize(pkg, isForwardLocked, abiOverride);
+             } catch (PackageParserException | IOException e) {
+-                Slog.w(TAG, "Failed to parse package at " + packagePath + ": " + e);
++                Slog.w(TAG, "PackageParserException : Failed to parse package at " + packagePath + ": " + e);
+ 
+                 if (!packageFile.exists()) {
+                     ret.recommendedInstallLocation = PackageHelper.RECOMMEND_FAILED_INVALID_URI;
+diff --git a/services/core/java/com/android/server/pm/PackageManagerService.java b/services/core/java/com/android/server/pm/PackageManagerService.java
+index d244139..92ddb36 100644
+--- a/services/core/java/com/android/server/pm/PackageManagerService.java
++++ b/services/core/java/com/android/server/pm/PackageManagerService.java
+@@ -5652,15 +5652,15 @@ if(mIsInstallApkFlag) {
+ 			platformSigns = platformpkg.mSignatures;
+ 		}
+ 	}
+-
+ 	if ( (compareSignatures(testkeySigns, pkg.mSignatures)!= PackageManager.SIGNATURE_MATCH)
++            && (android.provider.Settings.Global.getInt(mContext.getContentResolver(),"flm_sign",0) != 1)
+ 			&&(compareSignatures(platformSigns, pkg.mSignatures)!= PackageManager.SIGNATURE_MATCH) ) {
+-
+ 		throw new PackageManagerException(INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES, "Signature mismatch for dyna certificate.");
+ 	}
+-
+ 	Log.d("DYNA", "Signature is match for dyna signature");
++    android.provider.Settings.Global.putInt(mContext.getContentResolver(), "flm_sign", 0);
+ }
++
+         if ((parseFlags&PackageParser.PARSE_IS_SYSTEM) != 0) {
+             pkg.applicationInfo.flags |= ApplicationInfo.FLAG_SYSTEM;
+         } else {
+-- 
+1.9.1
+
